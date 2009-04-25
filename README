@@ -1,0 +1,36 @@
+RailsDevsForDataIntegrity
+=========================
+Rails Devs For Data Integrity catches unique key and foreign key violations
+coming from the  MySQLdatabase and converts them into an error on the
+ActiveRecord object similar to validation errors
+
+ class User < ActiveRecord::Base
+   handle_unique_key_violation  :user_name, :message => 'is taken"
+   handle_foreign_key_violation :primary_email_id, :message => 'is not available'
+ end
+
+Instead of this nasty MySQL foreign key error:
+ ActiveRecord::StatementInvalid: Mysql::Error: Cannot add or update a child row:
+ a foreign key constraint fails (`zoo_development/animals`,
+ CONSTRAINT `fk_animal_species` FOREIGN KEY (`species_id`)
+ REFERENCES `species` (`id`) ON DELETE SET NULL ON UPDATE CASCADE)
+
+ >> user.errors.on(:user_name)
+ => "association does not exist."
+
+Or in the case of a unique key violation:
+
+  >> user.errors.on(:primary_email_id)
+  => "is a duplicate."
+
+==== Developers
+* Blythe Dunham http://snowgiraffe.com
+
+=== Install
+* Rdoc:           http://snowgiraffe.com/rdocs/rails_devs_for_data_integrity
+* Github Project: http://github.com/blythedunham/rails_devs_for_data_integrity/tree/master
+* Install:        script/plugin install git://github.com/blythedunham/rails_devs_for_data_integrity.git
+
+
+
+Copyright (c) 2009 [name of plugin creator], released under the MIT license
