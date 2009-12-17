@@ -170,7 +170,7 @@ module ActiveRecord::RailsDevsForDataIntegrity
         yield
       elsif record
         record.add_unique_key_error(exception)   if @duplicate_exception
-        record.add_foreign_key_error(exception) if @foreign_key_exception
+        record.add_foreign_key_error(exception)  if @foreign_key_exception
         record
       end
     else
@@ -189,13 +189,17 @@ module ActiveRecord::RailsDevsForDataIntegrity
     @duplicate_exception = nil
     @foreign_key_exception = nil
     yield record
+    true
   rescue ActiveRecord::StatementInvalid => exception
     handle_data_integrity_error(exception, record)
+    return false
   end
 
   # do a create or update with data integrity check
   def create_or_update_with_data_integrity_check(options={})
-    execute_with_data_integrity_check(self){ create_or_update_without_data_integrity_check }
+    execute_with_data_integrity_check(self) do
+      return create_or_update_without_data_integrity_check
+    end
   end
 
   # save! with data integrity check
