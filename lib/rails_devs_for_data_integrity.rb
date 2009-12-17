@@ -1,5 +1,3 @@
-
-puts "RAILS DEVES"
 # Rails Devs For Data Integrity catches unique key and foreign key violations
 # coming from the  MySQLdatabase and converts them into an error on the
 # ActiveRecord object similar to validation errors
