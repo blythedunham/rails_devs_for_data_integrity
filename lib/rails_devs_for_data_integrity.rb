@@ -100,11 +100,16 @@ module ActiveRecord::RailsDevsForDataIntegrity
       alias_data_integrity_methods
     end
 
+    #enable uniqueness and foreign key checks for all ActiveRecord instances
+    def enable_all_database_violation_checks
+      ActiveRecord::Base.alias_data_integrity_methods
+    end
+
     protected
 
     #alias insert and update methods
     def alias_data_integrity_methods#:nodoc:
-      return if method_defined?(:create_or_update_without_data_integrity_check)
+      return if method_defined?( :save_without_data_integrity_check! )
       alias_method_chain :create_or_update, :data_integrity_check
       alias_method_chain :save!, :data_integrity_check
     end
