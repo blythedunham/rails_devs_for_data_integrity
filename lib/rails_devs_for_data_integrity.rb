@@ -108,7 +108,7 @@ module ActiveRecord::RailsDevsForDataIntegrity
   # Add a duplicate error message to errors based on the exception
   def add_unique_key_error(exception)
     if unique_key_check_options[:field_name]
-      self.errors.add(unique_key_check_options[:field_name], unique_key_check_options[:message]||"is a duplicate.")
+      self.errors.add(unique_key_check_options[:field_name], unique_key_check_options[:message]||"has already been taken.")
     else
       self.errors.add_to_base(unique_key_check_options[:message]||"Duplicate field.")
     end
