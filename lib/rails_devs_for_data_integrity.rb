@@ -56,9 +56,14 @@ module ActiveRecord::RailsDevsForDataIntegrity
     #  class User < ActiveRecord::Base
     #    handle_unique_key_violation :user_name, :message => 'is taken"
     #  end
-    def handle_unique_key_violation(name, options={})
+    def handle_unique_key_violation(*args)
       alias_data_integrity_methods
-      self.unique_key_check_options = options.merge(:field_name => name)
+      options = args.extract_options! || {}
+      options.symbolize_keys!
+
+      args.each do |name|
+        self.unique_key_check_options[ name.to_sym ]= options.merge(:field_name => name)
+      end
     end
 
     # Handle a MySQL foreign key violation by placing an error message on violating
@@ -107,9 +112,15 @@ module ActiveRecord::RailsDevsForDataIntegrity
 
   # Add a duplicate error message to errors based on the exception
   def add_unique_key_error(exception)
-    if unique_key_check_options[:field_name]
-      self.errors.add(unique_key_check_options[:field_name], unique_key_check_options[:message]||"has already been taken.")
+    unless unique_key_check_options.blank?
+      # we are not sure which violation occurred if we have multiple entries
+      # since mysql does not return a good error message
+      # add them all
+      unique_key_check_options.each do |name, options|
+        self.errors.add(options[:field_name], options[:message]||"has already been taken.")
+      end
     else
+      unique_key_check_options.keys
       self.errors.add_to_base(unique_key_check_options[:message]||"Duplicate field.")
     end
   end
@@ -133,16 +144,6 @@ module ActiveRecord::RailsDevsForDataIntegrity
     if (match = exception.to_s.match(/^Mysql::Error.*foreign key constraint fails.*FOREIGN KEY\s*\(`?([\w_]*)`?\)/))
       return match[1].dup
     end
-  end
-
-  # The classes unique key check options
-  def unique_key_check_options
-    self.class.unique_key_check_options
-  end
-
-  # The classes foreign key check options
-  def foreign_key_check_options
-    self.class.foreign_key_check_options
   end
 
   # If +exception+ is a unique key violation or a foreign key error,
