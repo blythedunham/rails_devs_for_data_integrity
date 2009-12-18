@@ -206,11 +206,10 @@ module ActiveRecord::RailsDevsForDataIntegrity
   # RecordNotSaved will be thrown by save! before converting to the standard
   # validation error ActiveRecord::RecordInvalid
   def save_with_data_integrity_check!(*args)
-    unless save(*args)
-      raise ActiveRecord::RecordInvalid.new(self) if @duplicate_exception||@foreign_key_exception
-      raise ActiveRecord::RecordNotSaved 
-    end
-    true
+    save_without_data_integrity_check!(*args)
+  rescue ActiveRecord::RecordNotSaved => e
+    raise ActiveRecord::RecordInvalid.new(self) if @duplicate_exception||@foreign_key_exception
+    raise e
   end
 end
 
