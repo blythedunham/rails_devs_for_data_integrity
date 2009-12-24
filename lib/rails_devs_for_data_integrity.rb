@@ -33,12 +33,19 @@ module ActiveRecord::RailsDevsForDataIntegrity
   def self.included(base)#:nodoc
     base.send :class_inheritable_hash, :unique_key_check_options
     base.send :class_inheritable_hash, :foreign_key_check_options
+    base.send :class_inheritable_hash, :default_violation_messages
+
     base.send :attr_reader,            :duplicate_exception
     base.send :attr_reader,            :foreign_key_exception
 
     base.unique_key_check_options   = {}
     base.foreign_key_check_options  = {}
-
+    base.default_violation_messages = {
+      :taken           => 'has already been taken',
+      :taken_multiple  => "has already been taken for {{context}}",
+      :taken_generic   => 'Duplicate field.',
+      :foreign_key     => "association does not exist."
+    }
     base.extend ClassMethods
   end
 
@@ -60,9 +67,12 @@ module ActiveRecord::RailsDevsForDataIntegrity
       alias_data_integrity_methods
       options = args.extract_options! || {}
       options.symbolize_keys!
-
       args.each do |name|
-        self.unique_key_check_options[ name.to_sym ]= options.merge(:field_name => name)
+        self.unique_key_check_options[ name.to_sym ]= options.merge(
+          :field_name => name.to_s,
+          :columns => [name.to_s].
+            concat( (options[:scope]||[]).collect(&:to_s) ).uniq.sort
+        )
       end
     end
 
@@ -115,32 +125,51 @@ module ActiveRecord::RailsDevsForDataIntegrity
     end
   end
 
-  # Add a duplicate error message to errors based on the exception
-  def add_unique_key_error(exception)
-    unless unique_key_check_options.blank?
-      # we are not sure which violation occurred if we have multiple entries
-      # since mysql does not return a good error message
-      # add them all
-      unique_key_check_options.each do |name, options|
-        self.errors.add(options[:field_name], options[:message]||"has already been taken.")
-      end
+  def default_error_message_for_violation( violation_type, columns )#:nodoc:
+    message_key = if violation_type == :foreign_key
+      :foreign_key
     else
-      unique_key_check_options.keys
-      self.errors.add_to_base(unique_key_check_options[:message]||"Duplicate field.")
+      case columns.length
+        when 0 then :taken_generic
+        when 1 then :taken
+        else :taken_multiple
+      end
     end
+    I18n.translate(
+      :"activerecord.errors.messages.#{message_key}",
+      :default => default_violation_messages[ message_key ],
+      :context => columns.slice(1..-1).join('/')
+    )
   end
 
-    # Add a foreign key error message to errors based on the exception
-  def add_foreign_key_error(exception, foreign_key=nil)
+  # Custom error messages set with handle_violation
+  def custom_error_message_for_violation( violation_type, columns )#:nodoc:
+    options = send(
+      "#{violation_type}_check_options"
+    )[ columns.first.to_sym ] if columns.any?
 
-    foreign_key ||= foreign_key_from_error_message(exception)
-    message = foreign_key_check_options[foreign_key.to_sym][:message] if foreign_key_check_options[foreign_key.to_sym]
-    message ||= "association does not exist."
+    message = case options[:message]
+      when Symbol then Il8n.translate( options[:message] )
+      else options[:message]
+    end unless options.blank?
+  end
 
-    if self.class.column_names.include?(foreign_key.to_s)
-      self.errors.add(foreign_key, message)
+  # Return the error message
+  def error_message_for_violation( violation_type, columns )#:nodoc:
+    message = custom_error_message_for_violation( violation_type, columns )
+    message ||= default_error_message_for_violation( violation_type, columns )
+  end
+
+  def add_errors_for_violation( violation_type, columns )
+    columns = [columns].flatten.compact
+    message = error_message_for_violation( violation_type, columns )
+
+    if columns.blank?
+      self.errors.add_to_base( message )
     else
-      self.errors.add_to_base(" #{foreign_key} #{message}")
+      self.errors.add( columns.first, message )
+    end
+  end
 
   def index_for_record_not_unique(exception) #:nodoc:
     case exception.message
@@ -154,7 +183,20 @@ module ActiveRecord::RailsDevsForDataIntegrity
     end
   end
   
+  
+  # Add a duplicate error message to errors based on the exception
+  def add_unique_key_error( exception, columns = nil )
+    columns ||= begin
+      index = index_for_record_not_unique( exception )
+      index.columns if index
     end
+    add_errors_for_violation( :unique_key, columns )
+  end
+
+  # Add a foreign key error message to errors based on the exception
+  def add_foreign_key_error(exception, foreign_key=nil)
+    foreign_key ||= foreign_key_from_error_message( exception )
+    add_errors_for_violation( :foreign_key, foreign_key )
   end
 
   # Return the foreign key name from the foreign key exception
