@@ -141,6 +141,19 @@ module ActiveRecord::RailsDevsForDataIntegrity
       self.errors.add(foreign_key, message)
     else
       self.errors.add_to_base(" #{foreign_key} #{message}")
+
+  def index_for_record_not_unique(exception) #:nodoc:
+    case exception.message
+      when /Duplicate entry.*for key (\d+)/
+        index_position = $1.to_i
+        # minus two b/c mysql message is one-based + rails excludes primary key index from indexes list
+        ActiveRecord::Base.connection.indexes(self.class.table_name)[index_position - 2]
+      when /Duplicate entry.*for key '(\w+)'/
+        index_name = $1
+        ActiveRecord::Base.connection.indexes(self.class.table_name).detect { |i| i.name == index_name }
+    end
+  end
+  
     end
   end
 
