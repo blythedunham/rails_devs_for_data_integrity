@@ -1,0 +1,14 @@
+0.1.5 (2009-12-23)
+* Changed:  Il8n support for error messages
+* Changed:  Generate error messages for unique key violations based on the fields/columns derived from the mysql exception
+* Changed:  handle_unique_key_violation takes a scope parameter for unique keys across multiple columns
+			handle_unique_key_violation :field1, :scope => [:field2]
+
+0.1.4 (2009-12-17)
+* Changed:  handle_unique_key_violation can take several key arguments
+            handle_unique_key_violation :field1, :field2
+* Changed:  method to handle all violations by default: ActiveRecord::Base.enable_all_database_violation_checks
+
+0.1.3 (2009-12-16)
+* Changed:  Create a gem spec
+* Fixed:    Fix plugin to work with rails 2.0
